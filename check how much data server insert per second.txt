@@ -1,0 +1,20 @@
+declare @i int
+set @i = 0
+
+
+WHILE(@i<>1000000000)
+BEGIN
+    INSERT INTO Table_1
+    (
+        UserId,
+        [Url],
+        Sha256
+    )
+    VALUES
+    (
+        NEWID(),
+        'test' + CAST(@i as nvarchar(max)),
+        HASHBYTES('SHA2_256',CAST(@i as nvarchar(max)))
+    )
+    SET @i = @i+1;  
+END
