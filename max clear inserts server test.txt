@@ -1,0 +1,16 @@
+CREATE TABLE [dbo].[TestUpdTable2](
+    [pk] [int] 
+)
+GO
+
+
+DECLARE @val INT
+SELECT @val=1
+WHILE @val < 1000000
+BEGIN
+  INSERT INTO [dbo].[TestUpdTable2]
+     ([pk])
+    VALUES
+     (@val)
+  SELECT @val=@val+1;
+END;
