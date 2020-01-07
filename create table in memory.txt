@@ -1,0 +1,22 @@
+CREATE DATABASE imoltp7   
+GO  
+
+ALTER DATABASE imoltp7 ADD FILEGROUP imoltp_mod7
+    CONTAINS MEMORY_OPTIMIZED_DATA;
+
+ALTER DATABASE imoltp7 ADD FILE (
+    name='imoltp_mod7', filename='c:\data\imoltp_mod7')
+    TO FILEGROUP imoltp_mod7;
+
+ALTER DATABASE imoltp7
+    SET MEMORY_OPTIMIZED_ELEVATE_TO_SNAPSHOT = ON;
+GO  
+  
+USE imoltp7  
+GO  
+
+CREATE TABLE [dbo].[TestUpdTable](
+    [pk]  INT IDENTITY(1,1) PRIMARY KEY NONCLUSTERED,
+	[numb] int
+) WITH (MEMORY_OPTIMIZED=ON)
+GO
