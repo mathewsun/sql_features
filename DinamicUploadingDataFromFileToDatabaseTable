@@ -1,0 +1,157 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Zdorov.ru.Models.Tables;
+using Dapper;
+using System.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+
+namespace Zdorov.ru.Models
+{
+    public class UploadRepository : IUploadRepository
+    {
+        private readonly IConfiguration _config;
+
+        public UploadRepository(IConfiguration config)
+        {
+            _config = config;
+        }
+
+        public IDbConnection Connection
+        {
+            get
+            {
+                return new SqlConnection(_config.GetConnectionString("ZdorovConnection"));
+            }
+        }
+
+        public async Task<UploadFileResult> UploadFile(string filePath)
+        {
+            var srcEncoding = Encoding.GetEncoding(1251);
+
+            int updatesCount = 0;
+
+            int insertsCount = 0;
+
+            int exceptionsCount = 0;
+
+            string tableName = string.Empty;
+
+            UploadFileResult result = new UploadFileResult();
+
+            using (StreamReader sr = new StreamReader(filePath, encoding: srcEncoding))
+            {
+                tableName = sr.ReadLine();
+
+                string columnsNames = sr.ReadLine();
+
+                columnsNames = columnsNames.Substring(1, columnsNames.Length - 2);
+
+                string[] columnsNamesSplit = columnsNames.Split(new string[] { ", " }, StringSplitOptions.None);
+
+                while (sr.Peek() >= 0)
+                {
+                    try
+                    {
+                        string data = sr.ReadLine();
+
+                        data = data.Replace("\\N", "null");
+
+                        string[] dataSplit = data.Split('\t');
+
+
+                        string query = "SELECT * FROM " + tableName + " WHERE " + columnsNamesSplit[0] + " = " + dataSplit[0];
+
+                        using (IDbConnection db = Connection)
+                        {
+                            var resultQuery = db.Query(query).FirstOrDefault();
+
+                            if (resultQuery != null)
+                            {
+                                //Update
+
+                                string updateQuery = "UPDATE " + tableName + " SET";
+
+                                for (int i = 1; i < dataSplit.Length; i++)
+                                {
+                                    if (dataSplit[i][0] == '\'')
+                                    {
+                                        dataSplit[i] = "N" + dataSplit[i];
+                                    }
+
+                                    updateQuery = updateQuery + " " + columnsNamesSplit[i] + " = " + dataSplit[i] + ",";
+                                }
+
+                                //remove last ','
+                                updateQuery = updateQuery.Remove(updateQuery.Length - 1);
+
+                                updateQuery = updateQuery + " WHERE " + columnsNamesSplit[0] + " = " + dataSplit[0];
+
+                                db.Execute(updateQuery);
+
+                                updatesCount++;
+                            }
+                            else
+                            {
+                                //Insert
+
+                                string insertQuery = "INSERT INTO " + tableName + " (";
+
+                                for (int i = 0; i < columnsNamesSplit.Length; i++)
+                                {
+                                    insertQuery = insertQuery + columnsNamesSplit[i] + ", ";
+                                }
+
+                                //remove last ', '
+                                insertQuery = insertQuery.Remove(insertQuery.Length - 2);
+
+                                insertQuery = insertQuery + ")";
+
+                                insertQuery = insertQuery + " VALUES (";
+
+                                for (int i = 0; i < dataSplit.Length; i++)
+                                {
+                                    if (dataSplit[i][0] == '\'')
+                                    {
+                                        dataSplit[i] = "N" + dataSplit[i];
+                                    }
+
+                                    insertQuery = insertQuery + dataSplit[i] + ", ";
+                                }
+
+                                //remove last ', '
+                                insertQuery = insertQuery.Remove(insertQuery.Length - 2);
+
+                                insertQuery = insertQuery + ")";
+
+                                db.Execute(insertQuery);
+
+                                insertsCount++;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Message = result.Message + "; Exception: " + ex.Message;
+
+                        exceptionsCount++;
+                    }
+                }
+            }
+
+            result.FileName = tableName;
+            result.UpdatesCount = updatesCount;
+            result.InsertsCount = insertsCount;
+            result.ExceptionsCount = exceptionsCount;
+
+            result.Message = result.Message + " Finish";
+
+            return result;
+        }
+    }
+}
