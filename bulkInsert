@@ -1,0 +1,19 @@
+declare @tablename  nvarchar(100);
+
+set @tablename = 'tblDrugs_m';
+
+declare @tempTableName  nvarchar(100);
+set @tempTableName = @tablename + '_temp';
+
+declare @filepath nvarchar(100);
+set @filepath = '/var/tmp/testConsole/tblDrugs_44';
+
+declare @query nvarchar(max);
+
+--clear temp table
+set @query = 'DELETE FROM ' + @tempTableName;
+EXEC(@query);
+
+--bulk insert to temp table
+set @query = 'BULK INSERT ' + @tempTableName + ' FROM ''' + @filepath + ''' WITH(FIRSTROW = 3)';
+EXEC(@query);
