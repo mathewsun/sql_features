@@ -1,0 +1,19 @@
+$isWebAppPoolStarted = Get-WebAppPoolState "web-api.online"
+
+if($isWebAppPoolStarted.Value -like "Started") {
+	$job = Start-Job { Stop-WebAppPool -Name "web-api.online" }
+	Wait-Job $job 
+}
+
+cd "C:\Work\Web-Api.online"
+
+git pull
+
+dotnet publish --configuration "Release"
+
+$from = "C:\Work\Web-Api.online\Web-Api.online\bin\Release\net5.0\"
+$to = "C:\inetpub\web-api.online\"
+
+Copy-Item -Path $from -Destination $to -Recurse -Force -ErrorAction SilentlyContinue
+
+Start-WebAppPool -Name "web-api.online"
