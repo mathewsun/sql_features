@@ -1,0 +1,25 @@
+$isWebAppPoolStarted = Get-WebAppPoolState "goldtech.market"
+
+if($isWebAppPoolStarted.Value -like "Started") {
+	$job = Start-Job { Stop-WebAppPool -Name "goldtech.market" }
+	Wait-Job $job 
+}
+
+cd "C:\old\goldtech.market"
+
+git pull
+
+cd "C:\old\goldtech.market\nopCommerce_4.30_Source\Presentation\Nop.Web"
+dotnet publish --configuration "Release"
+
+$from = "C:\old\goldtech.market\_nop_publish\"
+$to = "C:\inetpub\goldtech.market\"
+
+Copy-Item -Path $from -Destination $to -Recurse -Force -ErrorAction SilentlyContinue
+
+$from = "C:\Settings\"
+$to = "C:\inetpub\goldtech.market\_nop_publish\App_Data\"
+
+Copy-Item -Path $from -Destination $to -Recurse -Force -ErrorAction SilentlyContinue
+
+Start-WebAppPool -Name "goldtech.market"
