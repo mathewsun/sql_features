@@ -1,0 +1,102 @@
+DECLARE @JobID UNIQUEIDENTIFIER
+declare @jobname nvarchar(128)
+
+DECLARE MY_CURSOR CURSOR
+  LOCAL STATIC READ_ONLY FORWARD_ONLY
+FOR
+SELECT DISTINCT job_id
+FROM msdb_recover.dbo.sysjobs
+
+OPEN MY_CURSOR
+FETCH NEXT FROM MY_CURSOR INTO @JobID
+WHILE @@FETCH_STATUS = 0
+
+BEGIN
+SELECT @jobname = name FROM msdb_recover.dbo.sysjobs WHERE job_id=@jobid
+print @jobname
+
+--inserting in sysjobs
+INSERT msdb.dbo.sysjobs
+SELECT * FROM msdb_recover.dbo.sysjobs
+WHERE job_id=@JobID
+
+--inserting in sysjobsteps
+INSERT msdb.dbo.sysjobsteps
+SELECT * FROM msdb_recover.dbo.sysjobsteps
+WHERE job_id=@JobID
+
+--insert in sysjobhistory
+SET IDENTITY_INSERT msdb.dbo.sysjobhistory ON
+INSERT msdb.dbo.sysjobhistory
+    (instance_id,job_id,step_id,step_name,sql_message_id,sql_severity,
+     [message],run_status,run_date,run_time,run_duration,operator_id_emailed,
+     operator_id_netsent,operator_id_paged,retries_attempted,[server])
+SELECT
+    instance_id,job_id,step_id,step_name,sql_message_id,sql_severity,
+    [message],run_status,run_date,run_time,run_duration,operator_id_emailed,
+    operator_id_netsent,operator_id_paged,retries_attempted,[server]
+FROM msdb_recover.dbo.sysjobhistory
+WHERE job_id=@JobID
+
+SET IDENTITY_INSERT msdb.dbo.sysjobhistory OFF
+
+--inserting in sysschedules
+SET IDENTITY_INSERT msdb.dbo.sysschedules ON
+INSERT msdb.dbo.sysschedules
+( [schedule_id]
+,[schedule_uid]
+,[originating_server_id]
+,[name]
+,[owner_sid]
+,[enabled]
+,[freq_type]
+,[freq_interval]
+,[freq_subday_type]
+,[freq_subday_interval]
+,[freq_relative_interval]
+,[freq_recurrence_factor]
+,[active_start_date]
+,[active_end_date]
+,[active_start_time]
+,[active_end_time]
+,[date_created]
+,[date_modified]
+,[version_number])
+SELECT  s.[schedule_id]
+,s.[schedule_uid]
+,s.[originating_server_id]
+,s.[name]
+,s.[owner_sid]
+,s.[enabled]
+,s.[freq_type]
+,s.[freq_interval]
+,s.[freq_subday_type]
+,s.[freq_subday_interval]
+,s.[freq_relative_interval]
+,s.[freq_recurrence_factor]
+,s.[active_start_date]
+,s.[active_end_date]
+,s.[active_start_time]
+,s.[active_end_time]
+,s.[date_created]
+,s.[date_modified]
+,s.[version_number]
+FROM msdb_recover.dbo.sysschedules s, msdb_recover.dbo.sysjobschedules j
+WHERE j.job_id=@JobID and s.schedule_id = j.schedule_id
+
+SET IDENTITY_INSERT msdb.dbo.sysschedules OFF
+
+--inserting in sysjobschedules
+INSERT msdb.dbo.sysjobschedules
+SELECT * FROM msdb_recover.dbo.sysjobschedules
+WHERE job_id=@JobID
+
+--adding jobs in server
+use msdb
+EXEC dbo.sp_add_jobserver @job_id = @jobid
+
+FETCH NEXT FROM MY_CURSOR INTO @JobID
+END
+
+CLOSE MY_CURSOR
+DEALLOCATE MY_CURSOR
